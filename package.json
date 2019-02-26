@@ -1,7 +1,7 @@
 {
-    "name": "react-native-fast-image",
+    "name": "@senhorbardell/react-native-fast-image",
     "version": "0.0.0-development",
-    "description": "🚩 FastImage, performant React Native image component.",
+    "description": "🚩 FastImage, performant React Native image component. Fork",
     "keywords": [
         "cache",
         "cached",
