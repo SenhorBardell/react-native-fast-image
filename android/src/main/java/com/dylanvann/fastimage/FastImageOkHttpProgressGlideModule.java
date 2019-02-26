@@ -4,13 +4,11 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.Priority;
 import com.bumptech.glide.Registry;
 import com.bumptech.glide.annotation.GlideModule;
-import com.bumptech.glide.integration.okhttp3.OkHttpUrlLoader;
 import com.bumptech.glide.load.DataSource;
 import com.bumptech.glide.load.HttpException;
 import com.bumptech.glide.load.Options;
@@ -53,18 +51,23 @@ public class FastImageOkHttpProgressGlideModule extends LibraryGlideModule {
         private InputStream stream;
         private ResponseBody responseBody;
         private DataCallback<? super InputStream> callback;
+        // call may be accessed on the main thread while the object is in use on other threads. All other
+        // accesses to variables may occur on different threads, but only one at a time.
         private volatile Call call;
 
+        // Public API.
         @SuppressWarnings("WeakerAccess")
         public OkHttpStreamFetcher(Call.Factory client, GlideUrl url) {
             this.client = client;
             this.url = url;
         }
 
+
         @Override
-        public void loadData(@NonNull Priority priority, @NonNull final DataCallback<? super InputStream> callback) {
+        public void loadData(@NonNull Priority priority,
+                             @NonNull final DataCallback<? super InputStream> callback) {
             Request.Builder requestBuilder = new Request.Builder().url(url.toStringUrl());
-            for (Map.Entry<String, String> headerEntry: url.getHeaders().entrySet()) {
+            for (Map.Entry<String, String> headerEntry : url.getHeaders().entrySet()) {
                 String key = headerEntry.getKey();
                 requestBuilder.addHeader(key, headerEntry.getValue());
             }
@@ -86,6 +89,7 @@ public class FastImageOkHttpProgressGlideModule extends LibraryGlideModule {
             if (response.isSuccessful()) {
                 long contentLength = Preconditions.checkNotNull(responseBody).contentLength();
                 stream = ContentLengthInputStream.obtain(responseBody.byteStream(), contentLength);
+                callback.onDataReady(stream);
             } else {
                 callback.onLoadFailed(new HttpException(response.message(), response.code()));
             }
@@ -98,7 +102,7 @@ public class FastImageOkHttpProgressGlideModule extends LibraryGlideModule {
                     stream.close();
                 }
             } catch (IOException e) {
-                // ignored
+                // Ignored
             }
             if (responseBody != null) {
                 responseBody.close();
@@ -145,9 +149,8 @@ public class FastImageOkHttpProgressGlideModule extends LibraryGlideModule {
             @Override
             public ModelLoader<GlideUrl, InputStream> build(@NonNull MultiModelLoaderFactory multiFactory) {
                 return new ModelLoader<GlideUrl, InputStream>() {
-                    @Nullable
                     @Override
-                    public LoadData<InputStream> buildLoadData(@NonNull GlideUrl glideUrl, int width, int height, @NonNull Options options) {
+                    public LoadData<InputStream> buildLoadData(@NonNull final GlideUrl glideUrl, int width, int height, @NonNull Options options) {
                         return new LoadData<>(glideUrl, new OkHttpStreamFetcher(client, glideUrl));
                     }
 
@@ -160,7 +163,7 @@ public class FastImageOkHttpProgressGlideModule extends LibraryGlideModule {
 
             @Override
             public void teardown() {
-
+                // Do nothing, this instance doesn't own the client.
             }
         });
     }
